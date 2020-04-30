@@ -10,7 +10,7 @@ It appears that the bolide has not produced significant seisimc or acoustic sign
 
 ## Bolide information
 
-Time: ~13:30 UTC on April 6th 2020
+Time: 13:33:30 UTC on April 6th 2020 (from dashcam footage)
 
 Visible Loc. Start
 Latitude: 47.519665326067
