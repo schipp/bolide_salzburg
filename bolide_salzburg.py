@@ -3,17 +3,26 @@ import obspy
 import yaml
 import numpy as np
 import copy
+import pylab as plt
+import matplotlib.dates as mdates
+from bandpass import bandpass
+
+# valid locs: location_impact, location_visible_end, location_visible_start
+type_of_loc = 'location_visible_start'
+
+# filter pairs to look at
+filter_pairs = (
+    (1, 4),
+    (4, 8),
+    (8, 16),
+    (16, 32),
+    )
+
+# read from event metadata
 with open('metadata.yml') as f:
     metadata = yaml.load(f, Loader=yaml.FullLoader)
-
-# location_visible_start
-# location_visible_end
-# location_impact
-type_of_loc = 'location_impact'
-
 ev_lat = metadata[type_of_loc][0]
 ev_lon = metadata[type_of_loc][1]
-
 time_in_video = obspy.UTCDateTime(metadata['event_time_visual_video'])
 
 # read downloaded metadata
@@ -23,18 +32,20 @@ for fn in os.listdir('stations'):
     if '.xml' in fn:
         inv += obspy.read_inventory(f'stations/{fn}', format='STATIONXML')
 
-# read downloaded data and write distances into .stats
+# read downloaded data
 st = obspy.read('waveforms/*HHZ*.mseed')
 
 # REMOVE RESPONSE
 pre_filt = (0.005, 0.006, 250.0, 400.0)
 st.remove_response(inventory=inv, output='DISP', pre_filt=pre_filt)
 
+# trim to reasonable window
 st.trim(
     starttime=obspy.UTCDateTime('2020-04-06T13:30:00.0Z'),
     endtime=obspy.UTCDateTime('2020-04-06T13:50:00.0Z')
 )
 
+# compute distances
 for tr in st:
     selected_station_meta = inv.select(
         network=tr.stats.network,
@@ -61,22 +72,6 @@ for tr in st:
 
 max_dist = np.max([tr.stats.distance for tr in st])
 
-# st.plot(type='section', outfile='test.png')
-
-import pylab as plt
-import matplotlib.dates as mdates
-from sven_utils import suArray
-
-from obspy.signal.filter import highpass
-# %matplotlib inline
-
-filter_pairs = (
-    (1, 4),
-    (4, 8),
-    (8, 16),
-    (16, 32),
-    )
-
 fig, axs = plt.subplots(1, len(filter_pairs), sharey=True, sharex=True, figsize=(8, 4))
 fig.subplots_adjust(wspace=0, left=.075, right=.975, bottom=.05, top=.925)
 for filter_pair, ax in zip(filter_pairs, axs.flatten()):
@@ -85,14 +80,11 @@ for filter_pair, ax in zip(filter_pairs, axs.flatten()):
             print(f'INFO: Skipping {tr.stats.station}. Sampling rate too low for Filter Pair.')
             continue
 
-        if tr.coords['latitude'] > ev_lat:
-            print(f'INFO: Skipping {tr.stats.station}. South of event.')
-            continue
-
         # create fresh copy to work with
         data = copy.deepcopy(tr.data)
+
         # filter
-        data = suArray.bandpass(
+        data = bandpass(
             array=data,
             freqmin=filter_pair[0],
             freqmax=filter_pair[1],
@@ -123,8 +115,6 @@ for filter_pair, ax in zip(filter_pairs, axs.flatten()):
     if ax == axs.flatten()[0]:
         ax.set_ylabel(f'Distance from {type_of_loc}')
     
-    # ax.axvline(time_in_video.matplotlib_date, ls=':', lw='.5', color='k')
-    
     ax.plot([time_in_video.matplotlib_date, times[-1]], [0, 0.3*(tr.stats.endtime-time_in_video)], ls=':', c='#1f77b4', lw='.25', label='0.3km/s')
     ax.plot([time_in_video.matplotlib_date, times[-1]], [0, 3*(tr.stats.endtime-time_in_video)], ls='--', c='#1f77b4', lw='.25', label='3km/s')
 
@@ -137,7 +127,5 @@ ax.xaxis_date()
 ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
 fig.autofmt_xdate()
 
-# ax.set_xlabel(f"UTC on {metadata['event_time_approx'].split('T')[0]}")
-# ax.set_ylabel("Distance from visible endpoint [km]")
 fig.savefig(f'out_{type_of_loc}.png', dpi=300)
 plt.close(fig)
