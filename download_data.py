@@ -14,10 +14,10 @@ from obspy.clients.fdsn.mass_downloader import CircularDomain, \
 client.set_eida_token('eidatoken.txt')
 
 domain = CircularDomain(
-    latitude=metadata['location_visible_end'][0],
-    longitude=metadata['location_visible_end'][1],
+    latitude=metadata['location_visible_start'][0],
+    longitude=metadata['location_visible_start'][1],
     minradius=None,
-    maxradius=2
+    maxradius=3
     )
 
 restrictions = Restrictions(
@@ -25,8 +25,8 @@ restrictions = Restrictions(
     endtime=endtime,
     reject_channels_with_gaps=True,
     minimum_length=0.95,
-    minimum_interstation_distance_in_m=5E3,
-    channel_priorities=["HH[Z]", "BH[Z]"],
+    # minimum_interstation_distance_in_m=5E3,
+    channel_priorities=["HH[Z]", "BH[Z]", "EH[Z]"],
     # exclude_networks=['Z3']
     )
 
